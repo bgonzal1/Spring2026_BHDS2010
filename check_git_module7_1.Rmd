@@ -1,0 +1,18 @@
+---
+title: "gitcheck_module7"
+author: "BEVERLY GONZALEZ"
+date: "2026-03-10"
+output: pdf_document
+---
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+
+setwd("~/Desktop/Spring2026_BHDS2010")
+
+
+#read data and save this to an object called bookhappy
+bookhappy <- read.csv("BookHappiness.csv", header=TRUE)
+
+table(bookhappy$happy)
+
+```
