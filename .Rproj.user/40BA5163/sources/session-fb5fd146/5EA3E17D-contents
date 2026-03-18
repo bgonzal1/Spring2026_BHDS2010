@@ -1,0 +1,12 @@
+setwd("~/Desktop/Spring2026_BHDS2010")
+
+################################
+## 2 Sample Independent T-Test ##
+################################
+
+#read data and save this to an object called bookhappy
+bookhappy <- read.csv("BookHappiness.csv", header=TRUE)
+
+
+#going to add the distribution of happy
+table(bookhappy$happy)

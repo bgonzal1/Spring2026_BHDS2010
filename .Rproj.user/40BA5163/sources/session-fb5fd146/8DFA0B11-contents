@@ -1,0 +1,552 @@
+setwd("~/Desktop/Brown Course Development/For Module 06/Synch Session/Spring 2026")
+
+################################
+## 2 Sample Independent T-Test ##
+################################
+
+#read data and save this to an object called bookhappy
+bookhappy <- read.csv("BookHappiness.csv", header=TRUE)
+
+
+names(bookhappy)
+#One called book and the other called happy. When we view the data by opening
+#it, we notice happy is a score and therefore a continuous variable, while happy
+#seems to be a categorical variable.
+
+#to obtain the categories saved to book:
+table(bookhappy$book)
+#there are 10 books labeled under 1 and 10 books labeled under 2
+
+#We want to be able to not only convert book into a categorical variable (a
+#factor variable) but also want to assign a new label in place of 1 and 2. We
+#can achieve both of these with one step. In the following code notice we now
+#use factor instead of as.factor and this is because we will simultaneously ask
+#for new labels to replace the old labels. The levels command will allow the
+#user to set the original levels of the variable, and because we are providing
+#more than one level these are specified as a list using the concatenate
+#function c(). The labels function allows us to specify the new labels we want
+#to assign, where the first label directly will correspond to the first level,
+#etc.
+#Additionally, we are requesting that RStudio overwrite the original unfactored
+#and unlabeled variable with its factored and re-labeled version and save it to
+#the data under book via the accessor operator $.
+bookhappy$book <- factor(bookhappy$book, levels=c(1:2), 
+                         labels=c("Book 1", "Book2"))
+
+
+#Viewing the data shows that the variable book has now been factored and
+#relabeled to "Book1" and "Book2" Additionally, we also notice that the data
+#seems to have Book1 information stacked on top of Book2; therefore making it a
+#long dataset: Where we can think of the book variable as the index variable
+#indexing the different book and the happy variable containing the value or
+#score directly related to that book.
+bookhappy$book
+#It is also understood from the problem description that different observations
+#read Book1 than those that read Book2, making these independent from each
+#other.
+
+#The problem we are tasked with solving is whether the average happiness score
+#differs by book. Anytime that we are asked to compare means of two independent
+#groups, our first thought should be a two sample independent t-test provided
+#the assumptions are met.
+
+#Therefore, before we proceed with running a two sample independent t-test, we
+#first check if the assumptions for running such a test are met: 1. normality
+#and 2. homogeneity of variance.
+
+#To check normality assumption, because we have two groups and therefore two
+#averages, we seek the normality of the differences of these averages The first
+#step is to create a variable that will store the differences of the two
+#happiness scores (those associated with Book1 and those associated with Book2)
+
+#We notice however that our dataset is shaped long and it would be much easier
+#to create this difference variable if our dataset was shaped wide. Let's use
+#some of the information learned from previous modules to shape our data to wide
+
+#We use the unstack() base R function
+wide_bookhappy <- unstack(bookhappy, happy ~ book)
+
+#Results show 2 columns: Book.1 and Book2 that contain the corresponding happy
+#scores (Notice the naming for the books is a bit different Book.1 and Book2)
+wide_bookhappy
+
+#Create a difference variable of these scores between the two books, and store
+#in the wide_bookhappy data
+wide_bookhappy$diffvar <- wide_bookhappy$Book.1 - wide_bookhappy$Book2
+
+#When we view our data, we notice that the diffvar has been placed in the data
+#and contains both positive and negative differences indicating that at times
+#the happiness score was higher for Book1 and at other times higher for Book2
+wide_bookhappy
+
+#There are several ways that we can assess normality in RStudio. We will discuss
+#two ways. The first way is via one of the functions we have already learned
+#about: stat.desc() within the pastecs package. First we call in the pastecs
+#package 
+#(Note1: that if it outputs an error at this stage, it might require for the
+#re-installation of the pastecs package if you have started a new workspace;
+#Note2: if you receive a message in the console that states that objects are
+#masked. Remember that R is developed by an open source community and therefore
+#not uncommon that multiple packages may use the same name for a function or
+#dataset. If you load packages that use the same name for an object, R will warn
+#that certain object(s) have been masked).
+library(pastecs)
+
+#Using the stat.desc function and this time adding the option norm=TRUE will
+#assess the variable specified for normality.
+#Some tips:
+#By setting basic=TRUE we are asking R to output basic information such as n
+#(number of observations) for each variable in our dataset 
+
+#By setting desc=TRUE we are asking R to output descriptive information such as
+#mean, median, mode, etc, for each variable in our dataset 
+
+#By setting norm=TRUE we are asking R to output descriptive information such as
+#the statistic that tests for normality (Shapiro-Wilks) - normtest.W  and its
+#associated p-value (normtest.p). 
+#Note: The Shapiro–Wilk test is more appropriate method for small sample sizes (
+#<50 samples ) We will focus on this one.
+stat.desc(wide_bookhappy$diffvar, basic=TRUE, desc=TRUE, norm=TRUE)
+
+#Results show that the p-value which is stored under normtest.p equals 0.042.
+#For this part of the analysis, testing normality has its own Null and
+#Alternative hypothesis. 
+#Null Hypothesis (H0): data is normal vs. Alternative Hypothesis (Ha): data is
+#not normal The p-value outputted under this normality test is 0.042; it is less
+#than 0.05 (our default Type I error (alpha)). Therefore, we reject our Null
+#Hypothesis and conclude happy is not normally distributed. If we stop here, we
+#are not able to proceed with a t-test. When we encounter things like these, it
+#is indicative that the sample was not drawn from a population that was normally
+#distributed. One approach is to see if we could find an appropriate
+#transformation for the variables, recompute the difference, and re-test for
+#normality.
+
+#One such common transformation is the squared function. This simply means you
+#will create two other variables that store the square of the original book
+#variables (Note: the asterisk * is our multiplication operator):
+  
+wide_bookhappy$Book1_sq <- wide_bookhappy$Book.1 * wide_bookhappy$Book.1
+
+wide_bookhappy$Book2_sq <- wide_bookhappy$Book2 * wide_bookhappy$Book2
+
+#Then we find the difference of these two new squared variables and store under
+#a variable called diffofsquares
+wide_bookhappy$diffofsquares <- wide_bookhappy$Book1_sq - wide_bookhappy$Book2_sq 
+
+#Data now show that the data now contains three additional variables: each book
+#squared and the difference of the squares
+wide_bookhappy
+
+#This time, we assess normality of the diffofsquares variable:
+stat.desc(wide_bookhappy$diffofsquares, basic=TRUE, desc=TRUE, norm=TRUE)
+#Results show that the p-value = 0.0515, and following the same approach as
+#before, compare it to the default alpha of 0.05. The p-value is greater than
+#0.05 which leads us to fail to reject the null hypothesis and conclusion that
+#the diffofsquares variable is normally distributed.
+
+
+
+#The second way to assess for normality is to directly use the shapiro.test()
+#function contained in base R
+shapiro.test(wide_bookhappy$diffofsquares)
+#You will notice that results are consistent.
+
+#Because normality was achieved on the diffofsquares variable rather than the
+#diff variable, we must continue using the squared variables in the analysis.
+#However,when we interpret results, we must back transform to understand results 
+#in the original unit of measurement.
+
+
+#The next step is assessing for the homogeneity of variance assumption. We will
+#assess this using the leveneTest() function stored under the car package 
+library(car)
+
+#To use this function, within parenthesis specify the two variables we are
+#assessing for constant variance: Book1 and Book2 For this part of the analysis,
+#testing for the homogeneity of variance has its own Null and Alternative
+#hypothesis. 
+#Null Hypothesis (H0): there is constant variance vs. Alternative Hypothesis
+#(Ha): there is no constant variance
+
+leveneTest(wide_bookhappy$Book1_sq, wide_bookhappy$Book2_sq)
+#Results show a p-value of <2.2e-16 which is really small in comparison to the
+#default alpha of 0.05. Therefore, we  reject the null hypothesis of
+#constant variance and conclude variances are unequal in happiness
+#scores between books.
+#Note: you might receive a warning message (not an error about the Book variable
+#being coerced into a factor. This is because in an attempt to replicate a
+#ttest, one can run a linear model where the independent variable becomes the
+#categorical variable book. Because we are using wide data, this will not apply
+#here.)
+
+
+#The goal is to test whether there is a significant difference in the happiness
+#score when we compare books. This carries its own null and alternative
+#hypothesis: 
+#The Null hypothesis (H0) = there is no difference in the means or
+#that the difference is equal to 0 
+#The Alternative hypothesis (Ha) = there is a difference in the means or that
+#the difference is not equal to 0
+
+#First, we should explore whether there is a difference at all, irrespective of
+#directionality. For wide data, use the t.test() function using the syntax
+#below: 
+#t.test(dataname$variablename1,dataname$variablename2, alternative =
+#c("two.sided", "less", "greater") , mu = 0, paired = FALSE, var.equal = TRUE,
+#conf.level = 0.95, na.action = na.exclude)
+
+#Some information about the syntax: 
+#(1) because we are not interested in directionality, alternative should
+#be set to two.sided; however because the default is two sided, we will leave
+#this blank. 
+
+#(2) mu = 0 implies the difference expected under the null hypothesis. Under the
+#null hypothesis we do not expect for these two books to differ and would expect
+#this difference to be 0. mu=0 is the default in RStudio and because of this we
+#also can leave this part blank
+
+#(3) The 2 sample t-test we are conducting is an independent two sample t-test
+#and as such not a paired analysis. We therefore set paired = FALSE
+
+#(4) We found that variances between the two groups were  not homogeneous and as a
+#results we set var.equal to FALSE; the default in RStudio is TRUE 
+
+#(5)The type I error is set to 0.05 by default; therefore, conf.level is set to
+#0.95; because this is the default, we also leave this blank 
+
+#(6) The default is to exclude any na's and we can also leave this option blank
+
+
+#Given all of the defaults that we have the option of not specifying, our t-test
+#command then becomes:
+t.test(wide_bookhappy$Book1_sq, wide_bookhappy$Book2_sq, paired = FALSE, var.equal = FALSE)
+#Results show that the corresponding t-test statistic is equal to -2.1974 with a
+#corresponding p-value = 0.04. Due to the p-value being less than the default
+#type I error of 0.05, we reject the null hypothesis of equality of
+#the means and conclude that there is a significant difference between the
+#means.
+#When we look at the output that also provides the average of Book1 under "mean
+#of x" and the average of Book2 under "mean of y", we notice these values are
+#rather high from what the actual data was. This is where the transformation
+#performed plays a key role: we must back transform or undo the transformation
+#to get these back to the original unit of measurement.
+#To back transform, we take the square root of each of the displayed means, save
+#each to a different object and re-run the object to output the back-transformed
+#average.
+
+
+book1_avg <- sqrt(415.2)
+
+book1_avg
+
+
+book2_avg <- sqrt(605.6)
+
+book2_avg
+
+
+#Results now show averages that are more in line with what was expected. The
+#average of Book1 happiness score is 20.37 while the average of Book2 happiness
+#score is 24.61
+
+
+
+
+#Suppose we are interested in conducting the same t-test using the long data.
+#This would require that we run the t-test as a linear model(lm).
+#To conduct the t-test using the long data, we will follow the syntax below:
+# lm(Outcome ~ GroupVariableName, data = dataname,
+#alternative = c("two.sided"), mu = 0, paired = FALSE, var.equal = TRUE,
+#conf.level = 0.95, na.action = na.exclude)
+
+#Some information about the syntax: 
+#(1) because we are not interested in directionality, alternative should
+#be set to two.sided; however because the default is two sided, we will leave
+#this blank. 
+
+#(2) mu = 0 implies the difference expected under the null hypothesis. Under the
+#null hypothesis we do not expect for these two books to differ and would expect
+#this difference to be 0. mu=0 is the default in RStudio and because of this we
+#also can leave this part blank
+
+#(3) The 2 sample t-test we are conducting is an independent two sample t-test
+#and as such not a paired analysis. We therefore set paired = FALSE
+
+#(4) We found that variances between the two groups were not homogeneous and as a
+#results we set var.equal to FALSE; the default in RStudio is TRUE
+
+#(5)The type I error is set to 0.05 by default; therefore, conf.level is set to
+#0.95; because this is the default, we also leave this blank 
+
+#(6) The default is to exclude any na's and we can also leave this option blank
+
+
+
+
+library(pastecs)
+stat.desc(bookhappy$happy, norm=TRUE)
+
+
+#Given all of the defaults that we have the option of not specifying, our t-test
+#command using the long data then becomes:
+results <- lm(happy ~ book, data=bookhappy) #when variances are equal
+
+
+
+#to view results
+summary(results)
+
+#The output shows a t-test statistic for book2 vs book1 = 2.125 and p-value =
+#0.0477 Note that the Null and Alternative Hypothesis are the same as in the
+#case of the wide data for assessing group average difference. Null Hypothesis
+#(H0): There is no difference between the two groups vs. Alternative Hypothesis
+#(Ha): There is a difference between the two groups. 
+#The p-value is less than 0.05 (our default alpha); Therefore, the Null
+#Hypothesis is rejected and the conclusion is that there is a significant
+#difference between the two groups as it relates to associated happiness score.
+
+
+
+#If we want to see how our study estimates compare across other similar studies , we could output an effect size. Let's output the corresponding
+#effect size.
+
+#Compute the effect size by creating the following effect size equation and
+#store it under an object called r, where it is dependent on (1) the t-value for
+#the book difference estimate stored under #bookBook2 from output and (2) its
+#corresponding df.
+
+#We first set the corresponding values from output under t-value for the
+#bookBook2 estimate:
+t <- 2.125
+
+#We set the df to 18 (Note for a two sample independent t-test, the 
+# df = sample size for first group + sample size for second group - 2)
+df <- 18
+
+
+r <- sqrt(t^2 /(t^2 + df))
+
+r
+
+#output result by rounding to 3 decimal places
+round(r,3)
+
+#Using the benchmarks for effect sizes and listed below:
+# 0.10 (small effect) - in this case the effect explains 1% of total variance
+# 0.30 (medium effect) - in this case the effect explains 9% of total variance
+# 0.50 (large effect) - in this case the effect explains 25% of total variance
+
+#The higher the effect, the more generalizable our results
+
+#Our result, r=0.448, is just below 0.5, the threshold
+#for a large effect. Therefore, as well as being statistically significant, 
+#this effect is medium/large and so represents a substantive finding.
+
+
+
+
+#to view results
+plot(results)
+
+#ADDITIONAL
+#could use heteroscedasticity-robust standard errors using vcovHC() function from the 
+#sandwich package
+install.packages("sandwich")  # For robust standard errors
+install.packages("lmtest")    # For hypothesis testing
+
+library(sandwich)
+library(lmtest)
+
+# Use robust standard errors (HC3 is recommended for small samples)
+coeftest(results, vcov = vcovHC(results, type = "HC3"))
+
+#The p-value when assuming variances are not equal and using the robust standard errors
+#approach is not less than 0.05 (our default alpha); Therefore, the Null
+#Hypothesis is not rejected and the conclusion is that there is not a significant
+#difference between the two groups as it relates to associated happiness score.
+
+
+#We first set the corresponding values from output under t-value for the
+#bookBook2 estimate:
+t <- 2.0159
+
+#We set the df to 18 (Note for a two sample independent t-test, the 
+# df = sample size for first group + sample size for second group - 2)
+df <- 18
+
+
+r <- sqrt(t^2 /(t^2 + df))
+
+r
+
+#output result by rounding to 3 decimal places
+round(r,3)
+
+#Using the benchmarks for effect sizes and listed below:
+# 0.10 (small effect) - in this case the effect explains 1% of total variance
+# 0.30 (medium effect) - in this case the effect explains 9% of total variance
+# 0.50 (large effect) - in this case the effect explains 25% of total variance
+
+#The higher the effect, the more generalizable our results
+
+#Our result, r=0.429, is just below 0.5, the threshold
+#for a large effect. Therefore, tho not statistically significant, 
+#this effect is medium .
+
+
+
+
+
+
+
+
+
+#To generate a supporting box plot using ggplot:
+library(ggplot2)
+
+bookhappy1 <- ggplot(bookhappy, aes(book,happy))
+
+bookhappy1 + geom_boxplot() + labs(x="Book",y="Happiness Score") + scale_y_continuous(limits = c(0, 40),breaks = seq(from =0, to = 40, by = 10))
+
+#It is evident from these plots that there is a significant difference in happiness score. 
+
+
+#REPORTING OUR RESULTS
+#When you report any statistical test you usually state the finding to which
+#the test relates, and then in brackets report the test statistic (usually
+#its degrees of freedom), the probability value of that test statistic, and 
+#effect size. 
+
+#For this short analysis:
+#On average, the reported happiness score for the observations reading Book1
+#(Mean=20.0) was significantly lower than for those observations reading Book2
+#(Mean=24.2), t(18)=-2.12, p=0.047 < 0.05 , effect size (r=0.45) if we assume 
+#equal variances
+
+
+#On average, the reported happiness score for the observations reading Book1
+#(Mean=20.0) was significantly lower than for those observations reading Book2
+#(Mean=24.2), t(18)=2.0159, p=0.05899 not less than 0.05 , effect size (r=0.429) 
+#if we assume unequal variances
+
+
+
+
+
+
+
+
+
+
+
+#Another approach
+# Wilcoxon Rank-Sum Test (for independent samples)
+#wilcox.test(group1, group2, exact = TRUE, correct = FALSE)
+ #correct = TRUE applies continuity correction to improve approximation
+names(wide_bookhappy)
+
+happyModelmedians <- wilcox.test(wide_bookhappy$Book.1, wide_bookhappy$Book2, data = wide_bookhappy)
+
+
+#to account for the ties - forces normal approximation (since ties prevent exact calculations)
+happyModelmedians2 <- wilcox.test(wide_bookhappy$Book.1, wide_bookhappy$Book2, exact = FALSE, data = wide_bookhappy)
+
+happyModelmedians2
+
+#to show this does not work the same as in the lm() case.
+summary(happyModelmedians2)
+
+#We can also calculate the effect size. First type the following function given below:
+  rFromWilcox<-function(wilcoxModel, N){
+    z<- qnorm(wilcoxModel$p.value/2)
+    r<- z/ sqrt(N)
+    cat(wilcoxModel$data.name, "Effect Size, r = ", r)
+  }
+
+  #Then we call in the effect size function by specifying the model name and the
+  #number of observations in our data.
+rFromWilcox(happyModelmedians2, 20)
+
+
+
+
+
+
+#QUESTION 2
+
+################################################
+## 2 Sample Dependent T-Test using Wide Data  ##
+################################################
+
+
+#Suppose the question changes a bit and this time each participant reads BOTH
+#books and now the two scores are coming from the same person in each row in the
+#wide data. Using the wide data, to address whether there are any significant
+#differences in the paired averages we should run a PAIRED T-Test. Similar to
+#before, we must still assess for normality but this time on the paired
+#difference.
+
+#Similar to before, using the stat.desc function and this time adding the option
+#norm=TRUE will assess the variable specified for normality.
+
+#Some tips:
+#By setting basic=TRUE we are asking R to output basic information such as n
+#(number of observations) for each variable in our dataset 
+
+#By setting desc=TRUE we are asking R to output descriptive information such as
+#mean, median, mode, etc, for each variable in our dataset 
+
+#By setting norm=TRUE we are asking R to output descriptive information such as
+#the statistic that tests for normality (Shapiro-Wilks) - normtest.W  and its
+#associated p-value (normtest.p). 
+#Note: The Shapiro–Wilk test is more appropriate method for small sample sizes (
+#<50 samples ). We will focus on this one.
+
+stat.desc(wide_bookhappy$diffvar, basic=TRUE, desc=TRUE, norm=TRUE)
+
+
+#We would follow the same approach as before to test the normality and constant
+#variance assumption.
+
+#The goal is to test whether there is a significant difference in the happiness
+#score when we compare paired means. This carries its own null and alternative
+#hypothesis: 
+#The Null hypothesis (H0) = there is no difference in the paired means 
+#The Alternative hypothesis (Ha) = there is a difference in the paired means 
+
+
+#To run a dependent t-test using wide data:
+t.test(wide_bookhappy$Book.1, wide_bookhappy$Book2, paired=TRUE)
+
+
+#Results show a corresponding t-test statistic = -1.7755 and with its associated
+#df and p-value = 0.1095 The p-value outputted is not less than 0.05 (default
+#alpha value) We fail to reject the Null Hypothesis and conclude there is not a
+#significant difference between the two paired means; implying that happiness is
+#really not dependent on either book.
+
+
+#REPORTING OUR RESULTS
+#The results show that reading Book1 does not produce
+#significantly greater or less happiness than reading Book2 (p-value = 0.1095).
+
+
+
+
+################################################
+## 2 Sample Dependent T-Test using Long Data  ##
+################################################
+
+#If you attempt to run a dependent 2 sample t-test using long data using the
+#linear model lm() function setting paired = TRUE such as in the example below,
+#you will receive an error:
+results2 <- lm(happy ~ book, data=bookhappy, paired = TRUE)
+
+#Reason: One of the assumptions of running a linear model is that the
+#observations are independent of one another. In this case, when we set paired =
+#TRUE, RStudio understands that the observations are not independent but rather
+#that there is dependency. As such, it is not able to run a linear model on
+#dependent data. Therefore, if our data is shaped long and we must run a
+#dependent two sample t-test, we must reshape the data to wide and use the
+#t.test() function
+
